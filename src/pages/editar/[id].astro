@@ -1,0 +1,138 @@
+---
+import MainLayout from "../../layouts/MainLayout.astro";
+import { prisma } from "../../lib/db";
+
+const userRole = Astro.cookies.get('user_role')?.value;
+if (userRole !== 'ADMIN') {
+  return Astro.redirect('/admin/login');
+}
+
+const { id } = Astro.params;
+
+// 1. Buscamos los datos actuales del animal
+const animal = await prisma.animal.findUnique({
+  where: { id: parseInt(id || "0", 10) },
+});
+
+// Si el animal no existe, redirigimos al inicio
+if (!animal) {
+  return Astro.redirect("/");
+}
+
+// 2. Manejamos el envío del formulario (Lógica de guardado)
+if (Astro.request.method === "POST") {
+  try {
+    const data = await Astro.request.formData();
+    const nombre = data.get("nombre") as string;
+    const especie = data.get("especie") as string;
+    const riesgo = data.get("riesgo") as string;
+    const habitat = data.get("habitat") as string;
+    const descripcion = data.get("descripcion") as string;
+    const imagenUrl = data.get("imagenUrl") as string;
+
+    await prisma.animal.update({
+      where: { id: parseInt(id || "0", 10) },
+      data: {
+        nombre,
+        especie,
+        riesgo,
+        habitat,
+        descripcion,
+        imagenUrl,
+      },
+    });
+
+    return Astro.redirect("/");
+  } catch (error) {
+    console.error("Error actualizando:", error);
+  }
+}
+---
+
+<MainLayout title={`Editando ${animal.nombre}`}>
+  <section class="form-container">
+    <header class="form-header">
+      <a href="/" class="back-link">← Volver</a>
+      <h1>Editar Especie</h1>
+      <p>Modifica los datos de <strong>{animal.nombre}</strong></p>
+    </header>
+
+    <form method="POST" class="edit-form">
+      <div class="grid-inputs">
+        <div class="field">
+          <label>Nombre Común</label>
+          <input type="text" name="nombre" value={animal.nombre} required />
+        </div>
+        <div class="field">
+          <label>Nombre Científico</label>
+          <input type="text" name="especie" value={animal.especie} required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Estado de Riesgo</label>
+        <select name="riesgo" required>
+          <option value="Seguro" selected={animal.riesgo === "Seguro"}>🌿 Seguro</option>
+          <option value="Vulnerable" selected={animal.riesgo === "Vulnerable"}>⚠️ Vulnerable</option>
+          <option value="En Peligro" selected={animal.riesgo === "En Peligro"}>🚨 En Peligro</option>
+          <option value="Crítico" selected={animal.riesgo === "Crítico"}>💀 Crítico</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Hábitat / Ubicación</label>
+        <input type="text" name="habitat" value={animal.habitat} required />
+      </div>
+
+      <div class="field">
+        <label>URL de la Imagen</label>
+        <input type="url" name="imagenUrl" value={animal.imagenUrl} placeholder="https://..." />
+      </div>
+
+      <div class="field">
+        <label>Descripción breve</label>
+        <textarea name="descripcion" rows="4">{animal.descripcion}</textarea>
+      </div>
+
+      <button type="submit" class="btn-save">Guardar Cambios</button>
+    </form>
+  </section>
+</MainLayout>
+
+<style>
+  .form-container { max-width: 600px; margin: 2rem auto; padding: 2rem; background: white; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+  .form-header { margin-bottom: 2rem; text-align: center; }
+  .back-link { display: block; margin-bottom: 1rem; color: #666; text-decoration: none; font-size: 0.9rem; }
+  
+  .edit-form { display: flex; flex-direction: column; gap: 1.2rem; }
+  .grid-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  
+  .field { display: flex; flex-direction: column; gap: 0.5rem; }
+  label { font-weight: 700; font-size: 0.85rem; color: #444; text-transform: uppercase; }
+  
+  input, select, textarea {
+    padding: 0.8rem;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    font-size: 1rem;
+    outline-color: #2a9d8f;
+  }
+  
+  .btn-save {
+    background: #2a9d8f;
+    color: white;
+    border: none;
+    padding: 1rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 1rem;
+    transition: background 0.2s;
+  }
+  .btn-save:hover { background: #21867a; }
+
+  @media (max-width: 500px) {
+    .grid-inputs { grid-template-columns: 1fr; }
+  }
+</style>

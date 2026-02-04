@@ -19,7 +19,11 @@
 
 ## ✨ Funcionalidades principales
 - Autenticación básica: registro, login y logout
-- CRUD de animales: crear, listar, ver detalle y eliminar
+- CRUD de animales: crear, listar, ver detalle, editar y eliminar
+- Edición y borrado solo para ADMIN
+- Nuevo endpoint para eliminar animales (`/api/delete/[id]`)
+- Página de edición de animales (`/editar/[id]`), solo accesible para ADMIN
+- Login con código especial para acceso ADMIN temporal (campo opcional en el formulario de acceso; clave: `admin1234`)
 - Subida de imágenes y visualización en ficha/galería
 - Layouts reutilizables con componentes `.astro`
 - Rutas públicas y protegidas (ej.: `/animal/add-animal`)
@@ -92,7 +96,10 @@ npm run preview
 
 ## 📂 Estructura de Carpetas (MVC)
 - `src/pages/`: Vistas y controladores (rutas y frontmatter server-side).
-- `src/components/`: Componentes UI reutilizables.
+  - `add-animal.astro`: Alta de animales
+  - `animal/[id].astro`: Ficha de detalle
+  - `editar/[id].astro`: Edición de animales (solo ADMIN)
+  - `api/delete/[id].ts`: Endpoint para eliminar animales (solo ADMIN)
 - `src/layouts/`: Plantillas base (ej. `MainLayout.astro`).
 - `src/lib/`: Código compartido, helpers y `db.ts` (inicializa PrismaClient).
 - `prisma/`: `schema.prisma` y migraciones.
@@ -132,5 +139,7 @@ npm run preview
 ---
 
 ## 📄 Licencia
-No hay licencia especificada. Añade un archivo `LICENSE` si deseas compartir el proyecto públicamente bajo una licencia concreta.
+Este proyecto se publica bajo la licencia **MIT**. Consulta el archivo `LICENSE` para los términos completos.
+
+**Licencia:** MIT © 2026 Agustin
 

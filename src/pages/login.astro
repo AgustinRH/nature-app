@@ -9,19 +9,24 @@ if (Astro.request.method === 'POST') {
   const data = await Astro.request.formData();
   const email = data.get('email') as string;
   const password = data.get('password') as string;
+  const adminCode = data.get('adminCode') as string; // Capturamos el código extra
 
-  // 1. Buscamos al usuario por email
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (user) {
-    // 2. Comparamos la contraseña encriptada
     const isValid = await bcrypt.compare(password, user.password);
 
     if (isValid) {
-      // 3. GESTIÓN DE COOKIES (Requisito de Sesión)
-      // Guardamos el nombre y el rol en una cookie segura
+      // Determinamos el rol:
+      // Si pone la clave maestra "admin1234", le damos rol ADMIN solo para esta sesión.
+      // Si no, usamos el rol que ya tiene en la base de datos.
+      let roleToSet = user.role;
+      if (adminCode === "admin1234") {
+        roleToSet = "ADMIN";
+      }
+
       Astro.cookies.set('user_name', user.nombre, { path: '/', httpOnly: true });
-      Astro.cookies.set('user_role', user.role, { path: '/', httpOnly: true });
+      Astro.cookies.set('user_role', roleToSet, { path: '/', httpOnly: true });
 
       return Astro.redirect('/');
     } else {
@@ -35,26 +40,35 @@ if (Astro.request.method === 'POST') {
 
 <MainLayout title="Acceso">
   <div style="max-width: 400px; margin: auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-    <h2>Identificarse</h2>
+    <h2 style="text-align: center;">Identificarse</h2>
     
-    {errorMessage && <p style="color: red; background: #fee; padding: 0.5rem; border-radius: 4px;">{errorMessage}</p>}
+    {errorMessage && <p style="color: red; background: #fee; padding: 0.5rem; border-radius: 4px; text-align: center;">{errorMessage}</p>}
 
     <form method="POST" style="display: flex; flex-direction: column; gap: 1rem;">
       <label>
         Correo electrónico:
-        <input type="email" name="email" required style="width: 100%; padding: 0.5rem;" />
+        <input type="email" name="email" required style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;" />
       </label>
+      
       <label>
         Contraseña:
-        <input type="password" name="password" required style="width: 100%; padding: 0.5rem;" />
+        <input type="password" name="password" required style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;" />
       </label>
-      <button type="submit" style="background: var(--primary); color: white; padding: 0.8rem; border: none; border-radius: 4px; cursor: pointer;">
+
+      <div style="margin-top: 0.5rem; padding: 1rem; background: #f4f1ea; border-radius: 6px; border: 1px dashed #8b4513;">
+        <label style="font-size: 0.9rem; font-weight: bold; color: #8b4513;">
+          🔐 Código de Acceso ADMIN (Opcional)
+          <input type="password" name="adminCode" placeholder="Solo para gestión" style="width: 100%; padding: 0.5rem; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px;" />
+        </label>
+      </div>
+
+      <button type="submit" style="background: var(--primary); color: white; padding: 0.8rem; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 1rem;">
         Entrar
       </button>
     </form>
     
-    <p style="margin-top: 1rem; font-size: 0.9rem;">
-      ¿No tienes cuenta? <a href="/register">Regístrate aquí</a>
+    <p style="margin-top: 1.5rem; font-size: 0.9rem; text-align: center;">
+      ¿No tienes cuenta? <a href="/register" style="color: var(--primary); font-weight: bold;">Regístrate aquí</a>
     </p>
   </div>
 </MainLayout>
