@@ -111,17 +111,6 @@ npm run preview
 
 ---
 
-## ⚠️ Troubleshooting común
-- Error: `Cannot find module '.../node_modules/@prisma/client/runtime/library.js'` -> Reinstala dependencias y regenera el cliente:
-  ```bash
-  rm -rf node_modules package-lock.json
-  npm install
-  npx prisma generate
-  ```
-- Si recibes `EPIPE` o código 137 al ejecutar `npm run dev`, revisa memoria disponible y procesos en background.
-
----
-
 ## ✅ Buenas prácticas y recomendaciones
 - Usar `loading="lazy"` en imágenes grandes para mejorar rendimiento.
 - Validar y sanitizar datos entrantes en endpoints y formularios.
@@ -145,11 +134,3 @@ npm run preview
 ## 📄 Licencia
 No hay licencia especificada. Añade un archivo `LICENSE` si deseas compartir el proyecto públicamente bajo una licencia concreta.
 
----
-
-## Extras que puedo añadir
-- Capturas y GIFs del flujo de la app
-- Guía de despliegue en Vercel / Render / Netlify
-- Scripts de seed y ejemplos de payload para endpoints
-
-¿Quieres que incluya alguno de estos? 💡
