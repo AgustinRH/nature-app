@@ -1,0 +1,274 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import { prisma } from '../../lib/db';
+
+// 1. Obtenemos el ID de la URL
+const { id } = Astro.params;
+
+// 2. Consultamos la base de datos (con manejo de errores)
+let animal;
+try {
+  animal = await prisma.animal.findUnique({
+    where: { id: Number(id) }
+  });
+} catch (e) {
+  console.error("Error al consultar animal:", e);
+}
+
+// 3. Si no existe, redirigimos a 404
+if (!animal) {
+  return Astro.redirect('/404');
+}
+
+// 4. Formateo de fecha para que quede elegante
+const fechaRegistro = new Date(animal.createdAt).toLocaleDateString('es-ES', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric'
+});
+---
+
+<MainLayout title={`${animal.nombre} | Detalles`}>
+  <div class="page-container">
+    
+    <nav class="breadcrumb">
+      <a href="/">← Volver al Catálogo</a>
+    </nav>
+
+    <article class="animal-card-full">
+      
+      <div class="image-wrapper">
+        {animal.imagenUrl ? (
+          <img src={animal.imagenUrl} alt={animal.nombre} class="main-image" />
+        ) : (
+          <div class="no-image">🌿 Sin imagen disponible</div>
+        )}
+        <div class={`status-badge ${animal.riesgo.toLowerCase().replace(/\s+/g, '-')}`}>
+          {animal.riesgo}
+        </div>
+      </div>
+
+      <div class="info-wrapper">
+        <header>
+          <span class="category-tag">Especie Registrada</span>
+          <h1>{animal.nombre}</h1>
+          <p class="habitat-subtitle">🌍 Ubicación: <strong>{animal.habitat}</strong></p>
+        </header>
+
+        <div class="content-body">
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-label">Estado de Riesgo</span>
+              <span class="stat-value">{animal.riesgo}</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Fecha de Avistamiento</span>
+              <span class="stat-value">{fechaRegistro}</span>
+            </div>
+          </div>
+
+          <div class="description-text">
+            <h3>Sobre este ejemplar</h3>
+            <p>
+              Este ejemplar de <strong>{animal.nombre}</strong> ha sido documentado como parte de nuestro esfuerzo por catalogar la biodiversidad local. 
+              Actualmente se encuentra en un estado de conservación <strong>{animal.riesgo}</strong> en la zona de {animal.habitat}.
+            </p>
+            <p class="note">
+              * La información mostrada ha sido verificada por la comunidad de NatureApp.
+            </p>
+          </div>
+        </div>
+
+        <footer class="card-footer">
+          <button onclick="window.print()" class="btn-action">Imprimir Ficha</button>
+          <button onclick="alert('Funcionalidad de compartir próximamente')" class="btn-secondary">Compartir</button>
+        </footer>
+      </div>
+
+    </article>
+  </div>
+</MainLayout>
+
+<style>
+  /* Contenedor principal */
+  .page-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1rem;
+  }
+
+  .breadcrumb a {
+    text-decoration: none;
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: opacity 0.2s;
+  }
+  .breadcrumb a:hover { opacity: 0.7; }
+
+  /* La Gran Ficha */
+  .animal-card-full {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr; /* Proporción imagen/texto */
+    background: white;
+    margin-top: 1.5rem;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    min-height: 600px;
+  }
+
+  /* Responsive: una columna en móviles */
+  @media (max-width: 850px) {
+    .animal-card-full {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Estilos de Imagen */
+  .image-wrapper {
+    position: relative;
+    background: #222;
+  }
+
+  .main-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .no-image {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    background: #f4f4f4;
+  }
+
+  /* Etiquetas de Estado */
+  .status-badge {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    padding: 0.6rem 1.2rem;
+    border-radius: 12px;
+    color: white;
+    font-weight: 800;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    background: #666; /* Color base */
+  }
+
+  /* Variantes de color según el riesgo */
+  .critico { background: #e63946; }
+  .en-peligro { background: #f4a261; }
+  .vulnerable { background: #e9c46a; }
+  .seguro { background: #2a9d8f; }
+
+  /* Estilos de Información */
+  .info-wrapper {
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .category-tag {
+    color: var(--primary);
+    font-weight: 800;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  h1 {
+    font-size: 3rem;
+    margin: 0.5rem 0;
+    color: #1a1a1a;
+    line-height: 1.1;
+  }
+
+  .habitat-subtitle {
+    font-size: 1.1rem;
+    color: #555;
+  }
+
+  /* Grid de estadísticas */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 2rem 0;
+  }
+
+  .stat-box {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 12px;
+    border-left: 4px solid var(--primary);
+  }
+
+  .stat-label {
+    display: block;
+    font-size: 0.7rem;
+    color: #888;
+    text-transform: uppercase;
+    font-weight: bold;
+  }
+
+  .stat-value {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #333;
+  }
+
+  .description-text h3 {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .description-text p {
+    line-height: 1.6;
+    color: #444;
+  }
+
+  .note {
+    font-size: 0.8rem;
+    color: #999;
+    margin-top: 1rem;
+  }
+
+  /* Botones de acción */
+  .card-footer {
+    margin-top: 2rem;
+    display: flex;
+    gap: 1rem;
+  }
+
+  .btn-action {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: filter 0.2s;
+  }
+
+  .btn-secondary {
+    background: #eee;
+    color: #333;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  .btn-action:hover { filter: brightness(1.2); }
+</style>

@@ -1,17 +1,372 @@
 ---
+import MainLayout from "../layouts/MainLayout.astro";
+import { prisma } from "../lib/db";
 
+// 1. PARÁMETROS DE BÚSQUEDA Y PAGINACIÓN
+const search = Astro.url.searchParams.get("search") || "";
+const filterRiesgo = Astro.url.searchParams.get("riesgo") || "";
+
+const pageSize = 6; 
+const currentPage = Number(Astro.url.searchParams.get('page')) || 1;
+const skip = (currentPage - 1) * pageSize;
+
+// 2. CONSTRUIMOS EL FILTRO DINÁMICO
+const whereClause: any = {};
+
+if (search) {
+  whereClause.OR = [
+    { nombre: { contains: search } },
+    { especie: { contains: search } },
+    { habitat: { contains: search } },
+  ];
+}
+
+if (filterRiesgo) {
+  whereClause.riesgo = filterRiesgo;
+}
+
+// 3. CONSULTA A LA BASE DE DATOS
+// Obtenemos todos los que coinciden con el filtro para las estadísticas
+const todosLosFiltrados = await prisma.animal.findMany({
+  where: whereClause,
+  orderBy: { createdAt: "desc" },
+});
+
+// Extraemos el segmento para la página actual
+const animales = todosLosFiltrados.slice(skip, skip + pageSize);
+
+// 4. ESTADÍSTICAS (Usando .reduce sobre el total de filtrados)
+const totalEspecies = todosLosFiltrados.length;
+const totalPages = Math.ceil(totalEspecies / pageSize);
+
+const stats = todosLosFiltrados.reduce(
+  (acc, animal) => {
+    if (animal.riesgo === "Crítico") acc.criticos++;
+    return acc;
+  },
+  { criticos: 0 }
+);
+
+// 5. HELPERS
+const getRiskClass = (risk: string) => {
+  if (!risk) return "seguro";
+  return risk
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+};
+
+const getPageUrl = (page: number) => {
+  const params = new URLSearchParams(Astro.url.searchParams);
+  params.set('page', page.toString());
+  return `/?${params.toString()}`;
+};
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<MainLayout title="Catálogo de Biodiversidad">
+  <section class="welcome-header">
+    <h1>Reserva Natural Digital</h1>
+    <p>Explora la fauna de nuestra región.</p>
+  </section>
+
+  <section class="filters-container">
+    <form action="/" method="GET" class="search-form">
+      <div class="input-group main-search">
+        <span class="icon">🔍</span>
+        <input
+          type="text"
+          name="search"
+          placeholder="Especie, nombre o hábitat..."
+          value={search}
+        />
+      </div>
+
+      <div class="input-group">
+        <select name="riesgo" onchange="this.form.submit()">
+          <option value="">Todos los estados</option>
+          <option value="Seguro" selected={filterRiesgo === "Seguro"}>🌿 Seguro</option>
+          <option value="Vulnerable" selected={filterRiesgo === "Vulnerable"}>⚠️ Vulnerable</option>
+          <option value="En Peligro" selected={filterRiesgo === "En Peligro"}>🚨 En Peligro</option>
+          <option value="Crítico" selected={filterRiesgo === "Crítico"}>💀 Crítico</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn-filter">Filtrar</button>
+
+      {
+        (search || filterRiesgo) && (
+          <a href="/" class="btn-reset" title="Limpiar filtros">
+            ✕
+          </a>
+        )
+      }
+    </form>
+  </section>
+
+  <div class="stats-container">
+    <div class="stat-card">
+      <span class="stat-value">{totalEspecies}</span>
+      <span class="stat-label">Resultados</span>
+    </div>
+    <div class="stat-card alert">
+      <span class="stat-value">{stats.criticos}</span>
+      <span class="stat-label">En Riesgo Crítico</span>
+    </div>
+  </div>
+
+  <div class="animal-grid">
+    {
+      animales.length > 0 ? (
+        animales.map((animal) => {
+          const riskClass = getRiskClass(animal.riesgo || "");
+          return (
+            <a
+              href={`/animal/${animal.id}`}
+              class={`animal-card status-${riskClass}`}
+            >
+              <div class="image-box">
+                {animal.imagenUrl ? (
+                  <img
+                    src={animal.imagenUrl}
+                    alt={animal.nombre}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div class="no-img">🌿</div>
+                )}
+                <span class={`badge ${riskClass}`}>
+                  {animal.riesgo || "Sin datos"}
+                </span>
+              </div>
+
+              <div class="info-box">
+                <div class="text-content">
+                  <span class="category">Fauna Local</span>
+                  <h3>{animal.nombre}</h3>
+                  <p class="scientific-name">
+                    <i>{animal.especie}</i>
+                  </p>
+                  <p class="location">📍 {animal.habitat}</p>
+                  <p class="description">
+                    {animal.descripcion
+                      ? animal.descripcion.substring(0, 70) + "..."
+                      : "Sin descripción."}
+                  </p>
+                </div>
+                <div class="card-footer">
+                  <span class="btn-link">Ver ficha →</span>
+                </div>
+              </div>
+            </a>
+          );
+        })
+      ) : (
+        <div class="empty-state">
+          <p>No se han encontrado especies con esos criterios.</p>
+          <a href="/">Volver al catálogo completo</a>
+        </div>
+      )
+    }
+  </div>
+
+  {totalPages > 1 && (
+    <nav class="pagination" aria-label="Navegación de páginas">
+      <a 
+        href={getPageUrl(currentPage - 1)} 
+        class={`page-btn ${currentPage <= 1 ? 'disabled' : ''}`}
+      >
+        &larr; Anterior
+      </a>
+
+      <div class="page-numbers">
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+          <a 
+            href={getPageUrl(p)} 
+            class={`page-link ${p === currentPage ? 'active' : ''}`}
+          >
+            {p}
+          </a>
+        ))}
+      </div>
+
+      <a 
+        href={getPageUrl(currentPage + 1)} 
+        class={`page-btn ${currentPage >= totalPages ? 'disabled' : ''}`}
+      >
+        Siguiente &rarr;
+      </a>
+    </nav>
+  )}
+</MainLayout>
+
+<style>
+  /* BUSCADOR Y FILTROS */
+  .filters-container {
+    max-width: 800px;
+    margin: -1rem auto 3rem auto;
+    padding: 0 1rem;
+  }
+
+  .search-form {
+    display: flex;
+    gap: 12px;
+    background: white;
+    padding: 12px;
+    border-radius: 50px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0,0,0,0.03);
+    align-items: center;
+  }
+
+  .input-group {
+    display: flex;
+    align-items: center;
+    background: #f9f9f7;
+    border-radius: 40px;
+    padding: 5px 15px;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+  }
+
+  .input-group:focus-within {
+    background: white;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(45, 90, 39, 0.1);
+  }
+
+  .main-search { flex: 2; }
+
+  .icon { margin-right: 8px; opacity: 0.5; }
+
+  .input-group input, .input-group select {
+    border: none;
+    background: transparent;
+    padding: 10px 5px;
+    width: 100%;
+    outline: none;
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+
+  .btn-filter {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 40px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .btn-filter:hover { transform: scale(1.02); background: #1e3d1a; }
+
+  .btn-reset {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 35px;
+    height: 35px;
+    background: #eee;
+    color: #666;
+    border-radius: 50%;
+    text-decoration: none;
+  }
+
+  /* ESTADÍSTICAS */
+  .stats-container {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .stat-card {
+    background: white;
+    padding: 1rem;
+    border-radius: 12px;
+    text-align: center;
+    min-width: 140px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+
+  .stat-card.alert { border-top: 4px solid #e63946; }
+  .stat-value { font-size: 1.8rem; font-weight: bold; display: block; }
+  .stat-label { font-size: 0.7rem; color: #888; text-transform: uppercase; }
+
+  /* GRID */
+  .animal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 2rem;
+  }
+
+  .animal-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s;
+    border: 1px solid #eee;
+    height: 420px;
+  }
+
+  .animal-card:hover { transform: translateY(-5px); }
+
+  .image-box { height: 180px; position: relative; }
+  .image-box img { width: 100%; height: 100%; object-fit: cover; }
+  .no-img { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem; background: #f0f0f0; }
+
+  .badge {
+    position: absolute;
+    top: 10px; right: 10px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: white;
+  }
+
+  .badge.critico { background: #e63946; }
+  .badge.vulnerable { background: #f4a261; }
+  .badge.seguro { background: #2a9d8f; }
+
+  .info-box { padding: 1.2rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
+  .scientific-name { font-size: 0.85rem; color: #666; margin: 0.3rem 0; }
+  .description { font-size: 0.85rem; color: #777; line-height: 1.4; }
+
+  /* PAGINACIÓN */
+  .pagination {
+    margin-top: 3rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.5rem;
+    padding-bottom: 3rem;
+  }
+
+  .page-numbers { display: flex; gap: 0.5rem; }
+
+  .page-link, .page-btn {
+    text-decoration: none;
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: white;
+    border: 1px solid #ddd;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .page-link.active { background: var(--primary); color: white; border-color: var(--primary); }
+  .page-btn.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+  @media (max-width: 600px) {
+    .search-form { flex-direction: column; border-radius: 20px; }
+    .page-numbers { display: none; }
+  }
+</style>

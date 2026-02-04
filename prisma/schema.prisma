@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id       Int      @id @default(autoincrement())
+  email    String   @unique
+  password String
+  nombre   String
+  role     String   @default("USER")
+}
+
+model Animal {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  especie     String?  // <--- Añade esta línea (el ? significa que es opcional)
+  habitat     String
+  riesgo      String
+  descripcion String?
+  imagenUrl   String?
+  createdAt   DateTime @default(now())
+}

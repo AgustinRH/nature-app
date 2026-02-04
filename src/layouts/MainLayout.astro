@@ -1,0 +1,132 @@
+---
+// Definimos variables que recibiremos como "props"
+interface Props {
+    title: string;
+}
+
+const { title } = Astro.props;
+
+/** * GESTIÓN DE SESIÓN
+ * Leemos las cookies para saber si hay un usuario identificado
+ */
+const userName = Astro.cookies.get('user_name')?.value;
+const userRole = Astro.cookies.get('user_role')?.value;
+
+---
+
+<html lang="es">
+    <head>
+        <meta charset="utf-8" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <meta name="viewport" content="width=device-width" />
+        <title>{title} | NatureApp</title>
+        <style is:global>
+            :root {
+                --primary: #2d5a27; /* Verde bosque */
+                --secondary: #f4f1ea; /* Crema arena */
+                --accent: #8b4513; /* Marrón tierra */
+                --text: #333;
+            }
+            body {
+                font-family: system-ui, -apple-system, sans-serif;
+                background-color: var(--secondary);
+                color: var(--text);
+                margin: 0;
+                line-height: 1.6;
+            }
+            nav {
+                background: var(--primary);
+                color: white;
+                padding: 1rem 2rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            }
+            nav a { 
+                color: white; 
+                text-decoration: none; 
+                margin-left: 15px;
+                font-size: 0.95rem;
+            }
+            nav a:hover {
+                text-decoration: underline;
+            }
+            .user-info {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-size: 0.9rem;
+            }
+            .logout-btn {
+                background: rgba(255,255,255,0.2);
+                padding: 0.3rem 0.7rem;
+                border-radius: 4px;
+                transition: background 0.3s;
+            }
+            .logout-btn:hover {
+                background: rgba(255,0,0,0.3);
+            }
+            .btn-add {
+                background: #fff;
+                color: var(--primary) !important;
+                padding: 0.4rem 0.8rem;
+                border-radius: 6px;
+                font-weight: bold;
+            }
+            main { 
+                padding: 2rem; 
+                max-width: 1000px; 
+                margin: auto; 
+                min-height: 80vh;
+            }
+            footer { 
+                text-align: center; 
+                padding: 3rem 1rem; 
+                font-size: 0.85rem;
+                color: #666;
+                border-top: 1px solid #ddd;
+            }
+            input, select {
+                border: 1px solid #ccc;
+                padding: 0.6rem;
+                border-radius: 4px;
+            }
+        </style>
+    </head>
+    <body>
+        <nav>
+            <a href="/" style="margin:0; font-size: 1.3rem; font-weight: bold;">
+                🌿 NatureApp
+            </a>
+            <div class="user-info">
+                <a href="/">Inicio</a>
+                
+                {userName ? (
+                    <>
+                        <a href="/add-animal" class="btn-add">+ Añadir</a>
+                        
+                        <span style="border-left: 1px solid rgba(255,255,255,0.3); padding-left: 15px;">
+                            Hola, <strong>{userName}</strong>
+                        </span>
+                        
+                        {userRole === 'ADMIN' && <span style="font-size: 0.7rem; background: gold; color: black; padding: 2px 5px; border-radius: 3px; font-weight: bold;">ADMIN</span>}
+                        
+                        <a href="/api/logout" class="logout-btn">Cerrar sesión</a>
+                    </>
+                ) : (
+                    <a href="/login" style="background: white; color: var(--primary); padding: 0.4rem 1rem; border-radius: 4px; font-weight: bold;">Acceso</a>
+                )}
+            </div>
+        </nav>
+
+        <main>
+            <slot />
+        </main>
+
+        <footer>
+            <p><strong>Proyecto Desarrollo Web - 2026</strong></p>
+            <p>Arquitectura Astro + Prisma ORM + SQLite</p>
+        </footer>
+    </body>
+</html>

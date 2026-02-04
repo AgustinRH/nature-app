@@ -1,0 +1,32 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import { prisma } from '../lib/db';
+import bcrypt from 'bcryptjs';
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const email = data.get('email') as string;
+  const password = data.get('password') as string;
+  const nombre = data.get('nombre') as string;
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  try {
+    await prisma.user.create({
+      data: { email, nombre, password: hashedPassword }
+    });
+    return Astro.redirect('/login');
+  } catch (e) {
+    console.error("Error al registrar:", e);
+  }
+}
+---
+<MainLayout title="Registro">
+  <form method="POST" style="display: flex; flex-direction: column; gap: 1rem; max-width: 400px;">
+    <h2>Crear Cuenta</h2>
+    <input type="text" name="nombre" placeholder="Nombre" required />
+    <input type="email" name="email" placeholder="Correo" required />
+    <input type="password" name="password" placeholder="Contraseña" required />
+    <button type="submit">Registrarse</button>
+  </form>
+</MainLayout>

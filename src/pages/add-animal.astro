@@ -1,0 +1,197 @@
+---
+import MainLayout from '../layouts/MainLayout.astro';
+import { prisma } from '../lib/db';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { Buffer } from 'node:buffer';
+
+// --- CONTROLADOR (Lógica de Servidor) ---
+if (Astro.request.method === 'POST') {
+  try {
+    const data = await Astro.request.formData();
+    
+    // Captura de todos los campos
+    const nombre = data.get('nombre')?.toString() ?? '';
+    const especie = data.get('especie')?.toString() ?? '';
+    const habitat = data.get('habitat')?.toString() ?? '';
+    const riesgo = data.get('riesgo')?.toString() ?? '';
+    const descripcion = data.get('descripcion')?.toString() ?? '';
+    const imagen = data.get('imagen') as File | null;
+
+    // Validación básica
+    if (!nombre || !habitat || !riesgo) {
+      throw new Error('Faltan campos obligatorios (Nombre, Hábitat o Riesgo)');
+    }
+
+    let imagenUrl: string | null = null;
+
+    // 1. GESTIÓN DE SUBIDA DE IMAGEN
+    if (imagen && typeof (imagen as any).size === 'number' && imagen.size > 0) {
+      const buffer = Buffer.from(await imagen.arrayBuffer());
+      const fileName = `${Date.now()}-${path.basename((imagen as any).name || 'upload')}`;
+      const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+      
+      // Asegurar que la carpeta existe
+      await fs.mkdir(uploadDir, { recursive: true });
+      
+      const filePath = path.join(uploadDir, fileName);
+      await fs.writeFile(filePath, buffer);
+      imagenUrl = `/uploads/${fileName}`;
+    }
+
+    // 2. GUARDADO EN BASE DE DATOS
+    await prisma.animal.create({
+      data: {
+        nombre,
+        especie,
+        habitat,
+        riesgo,
+        descripcion,
+        imagenUrl
+      }
+    });
+
+    // 3. ÉXITO: REDIRECCIÓN
+    return Astro.redirect('/');
+
+  } catch (error) {
+    console.error("Error al guardar el animal:", error);
+  }
+}
+---
+
+<MainLayout title="Añadir Animal">
+  <div class="form-wrapper">
+    <h1>🌿 Registrar Nueva Especie</h1>
+    <p class="subtitle">Completa la ficha técnica para el catálogo.</p>
+
+    <form method="POST" enctype="multipart/form-data" class="animal-form">
+      
+      <div class="form-group">
+        <label for="nombre">Nombre común</label>
+        <input type="text" id="nombre" name="nombre" required placeholder="Ej: Oso Pardo" />
+      </div>
+
+      <div class="form-group">
+        <label for="especie">Nombre científico (Especie)</label>
+        <input type="text" id="especie" name="especie" placeholder="Ej: Ursus arctos" />
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="habitat">Hábitat principal</label>
+          <input type="text" id="habitat" name="habitat" required placeholder="Ej: Cordillera Cantábrica" />
+        </div>
+
+        <div class="form-group">
+          <label for="riesgo">Estado de conservación</label>
+          <select id="riesgo" name="riesgo">
+            <option value="Seguro">Seguro</option>
+            <option value="Vulnerable">Vulnerable</option>
+            <option value="En Peligro">En Peligro</option>
+            <option value="Crítico">Crítico</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="descripcion">Descripción detallada</label>
+        <textarea id="descripcion" name="descripcion" rows="4" placeholder="Escribe aquí las características principales..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="imagen">Fotografía de la especie</label>
+        <input type="file" id="imagen" name="imagen" accept="image/*" required />
+      </div>
+
+      <div class="form-actions">
+        <a href="/" class="btn-cancel">Cancelar</a>
+        <button type="submit" class="btn-submit">✅ Guardar Animal</button>
+      </div>
+    </form>
+  </div>
+</MainLayout>
+
+<style>
+  .form-wrapper {
+    max-width: 600px;
+    margin: 0 auto;
+    padding-bottom: 3rem;
+  }
+  
+  h1 { color: var(--primary); margin-bottom: 0.5rem; }
+  .subtitle { color: #666; margin-bottom: 2rem; }
+
+  .animal-form {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  label {
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #444;
+  }
+
+  input, select, textarea {
+    padding: 0.8rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .btn-submit {
+    background: var(--primary);
+    color: white;
+    padding: 0.8rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .btn-submit:hover {
+    transform: scale(1.02);
+    filter: brightness(1.1);
+  }
+
+  .btn-cancel {
+    text-decoration: none;
+    color: #888;
+    padding: 0.8rem;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+  }
+</style>
