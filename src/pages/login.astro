@@ -18,10 +18,10 @@ if (Astro.request.method === 'POST') {
 
     if (isValid) {
       // Determinamos el rol:
-      // Si pone la clave maestra "admin1234", le damos rol ADMIN solo para esta sesión.
+      // Si pone la clave maestra correcta, le damos rol ADMIN solo para esta sesión.
       // Si no, usamos el rol que ya tiene en la base de datos.
       let roleToSet = user.role;
-      if (adminCode === "admin1234") {
+      if (adminCode && adminCode === import.meta.env.ADMIN_ACCESS_CODE) {
         roleToSet = "ADMIN";
       }
 

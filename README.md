@@ -23,7 +23,7 @@
 - Edición y borrado solo para ADMIN
 - Nuevo endpoint para eliminar animales (`/api/delete/[id]`)
 - Página de edición de animales (`/editar/[id]`), solo accesible para ADMIN
-- Login con código especial para acceso ADMIN temporal (campo opcional en el formulario de acceso; clave: `admin1234`)
+- Login con código especial para acceso ADMIN temporal (campo opcional en el formulario de acceso; configurable mediante variable de entorno `ADMIN_ACCESS_CODE`)
 - Subida de imágenes y visualización en ficha/galería
 - Layouts reutilizables con componentes `.astro`
 - Rutas públicas y protegidas (ej.: `/animal/add-animal`)
@@ -69,7 +69,9 @@ npm install
 - Si quieres usar PostgreSQL u otra DB, crea un `.env` con `DATABASE_URL`:
 ```env
 DATABASE_URL="postgresql://user:pass@localhost:5432/naturedb"
+ADMIN_ACCESS_CODE="tu_codigo_secreto"
 ```
+- `ADMIN_ACCESS_CODE`: Código secreto para acceso temporal como administrador en el login (por defecto: `admin1234`)
 
 4. Migraciones y Prisma
 ```bash
