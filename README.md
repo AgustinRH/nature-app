@@ -72,7 +72,7 @@ DATABASE_URL="postgresql://user:pass@localhost:5432/naturedb"
 ADMIN_ACCESS_CODE="tu_codigo_secreto"
 ```
 - `ADMIN_ACCESS_CODE`: Código secreto para acceso temporal como administrador en el login (por defecto: `admin1234`)
-- `DATABASE_URL`: En producción (Fly.io), usa `file:/app/data/prod.db`
+
 
 4. Migraciones y Prisma
 ```bash
@@ -118,43 +118,6 @@ npm run preview
   npx prisma generate
   ```
 - Usa `npx prisma studio` para una interfaz rápida y visual de la DB.
-
----
-
-## 🚀 Deploy a Producción
-
-### Opción recomendada: Fly.io
-
-Fly.io es excelente para aplicaciones con SQLite ya que soporta volúmenes persistentes, no tiene "spin down" y es rápido.
-
-Ver guía completa en **[FLY_DEPLOY.md](FLY_DEPLOY.md)** con todos los pasos detallados.
-
-#### Resumen rápido:
-
-```bash
-# 1. Instalar Fly CLI
-curl -L https://fly.io/install.sh | sh
-
-# 2. Login
-flyctl auth login
-
-# 3. Crear app
-flyctl launch
-
-# 4. Crear volumen
-flyctl volumes create nature_app_data --size 1
-
-# 5. Configurar secrets
-flyctl secrets set ADMIN_ACCESS_CODE="tu_codigo_secreto"
-flyctl secrets set DATABASE_URL="file:/app/data/prod.db"
-
-# 6. Desplegar
-flyctl deploy
-```
-
-### Otras opciones:
-- **Render**: Fácil, con free tier (tiene spin-down tras inactividad)
-- **VPS** (DigitalOcean, Linode): Control total, ~$5/mes
 
 ---
 
