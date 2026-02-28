@@ -1,0 +1,26 @@
+# Render.com configuration
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: nature-app
+    runtime: node
+    region: frankfurt  # Elige: frankfurt, oregon, ohio, singapore
+    plan: free
+    branch: master
+    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
+    startCommand: npm run start
+    healthCheckPath: /
+    
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:/opt/render/project/data/prod.db
+      - key: ADMIN_ACCESS_CODE
+        generateValue: true  # Render generará un valor aleatorio
+    
+    disk:
+      name: nature-app-data
+      mountPath: /opt/render/project/data
+      sizeGB: 1
