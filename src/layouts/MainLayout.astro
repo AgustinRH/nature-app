@@ -7,8 +7,33 @@ const { title } = Astro.props;
 
 // GESTIÓN DE SESIÓN
 const userName = Astro.cookies.get("user_name")?.value;
+const userId = Astro.cookies.get("user_id")?.value;
 const userRole = Astro.cookies.get("user_role")?.value;
 const isAdmin = userRole === "ADMIN";
+
+// Obtener puntos del usuario
+let userPuntos = 0;
+let userFavoritos = 0;
+if (userId || userName) {
+  try {
+    const { prisma } = await import('../lib/db');
+        const user = userId
+            ? await prisma.user.findUnique({
+                    where: { id: parseInt(userId) },
+                    select: { id: true, puntos: true }
+                })
+            : await prisma.user.findFirst({
+                    where: { nombre: userName },
+                    select: { id: true, puntos: true }
+                });
+    if (user) {
+      userPuntos = user.puntos;
+            userFavoritos = await prisma.favorito.count({ where: { usuarioId: user.id } });
+    }
+  } catch (e) {
+    console.error("Error al obtener puntos:", e);
+  }
+}
 ---
 
 <html lang="es">
@@ -82,6 +107,28 @@ const isAdmin = userRole === "ADMIN";
                 gap: 15px;
             }
 
+            .points-badge {
+                background: rgba(255, 255, 255, 0.2);
+                padding: 0.4rem 0.8rem;
+                border-radius: 6px;
+                font-size: 0.85rem;
+                font-weight: bold;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+
+            .favorites-badge {
+                background: rgba(255, 255, 255, 0.2);
+                padding: 0.4rem 0.8rem;
+                border-radius: 6px;
+                font-size: 0.85rem;
+                font-weight: bold;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+
             .btn-add {
                 background: white;
                 color: var(--primary) !important;
@@ -136,7 +183,16 @@ const isAdmin = userRole === "ADMIN";
             userName ? (
                 <>
                     <span>
-                        Hola, <strong>{userName}</strong>
+                        Hola, <a href="/perfil" style="color: white; text-decoration: none; font-weight: bold; cursor: pointer;">{userName}</a>
+                    </span>
+                    
+                    {/* Mostrar puntos */}
+                    <span class="points-badge">
+                        🏆 {userPuntos} puntos
+                    </span>
+
+                    <span class="favorites-badge">
+                        ❤️ <span id="nav-favorites-count">{userFavoritos}</span>
                     </span>
                     
                     {/* SOLO EL ADMIN LLEVA LA PLACA */}
@@ -166,5 +222,18 @@ const isAdmin = userRole === "ADMIN";
         <footer>
             <p><strong>Proyecto Fauna - 2026</strong> | Astro + Prisma</p>
         </footer>
+
+        <script is:inline>
+            window.addEventListener('favorites:delta', (event) => {
+                const customEvent = event;
+                const delta = Number(customEvent.detail?.delta || 0);
+                const counter = document.getElementById('nav-favorites-count');
+                if (!counter || !delta) return;
+
+                const current = Number(counter.textContent || '0');
+                const next = Math.max(0, current + delta);
+                counter.textContent = String(next);
+            });
+        </script>
     </body>
 </html>

@@ -18,17 +18,22 @@ model User {
   
   favoritos  Favorito[]
   comentarios Comentario[]
+  actividades Actividad[]
 }
 
 model Animal {
   id          Int      @id @default(autoincrement())
   nombre      String
-  especie     String?  // <--- Añade esta línea (el ? significa que es opcional)
+  especie     String?
   habitat     String
   riesgo      String
   descripcion String?
   imagenUrl   String?
   createdAt   DateTime @default(now())
+  
+  favoritos Favorito[]
+  comentarios Comentario[]
+  imagenes Imagen[]
 }
 
 model Planta {
@@ -40,4 +45,59 @@ model Planta {
   descripcion String?
   imagenUrl   String?
   createdAt   DateTime @default(now())
+  
+  favoritos Favorito[]
+  comentarios Comentario[]
+  imagenes Imagen[]
+}
+
+model Favorito {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int
+  usuario   User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  animalId  Int?
+  animal    Animal?  @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  plantaId  Int?
+  planta    Planta?  @relation(fields: [plantaId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  
+  @@unique([usuarioId, animalId])
+  @@unique([usuarioId, plantaId])
+}
+
+model Comentario {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int
+  usuario   User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  animalId  Int?
+  animal    Animal?  @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  plantaId  Int?
+  planta    Planta?  @relation(fields: [plantaId], references: [id], onDelete: Cascade)
+  contenido String
+  createdAt DateTime @default(now())
+}
+
+model NewsletterSuscriptor {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
+
+model Imagen {
+  id        Int      @id @default(autoincrement())
+  animalId  Int?
+  animal    Animal?  @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  plantaId  Int?
+  planta    Planta?  @relation(fields: [plantaId], references: [id], onDelete: Cascade)
+  url       String
+  createdAt DateTime @default(now())
+}
+
+model Actividad {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int
+  usuario   User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tipo      String   // "favorito", "comentario", "registro"
+  puntos    Int
+  createdAt DateTime @default(now())
 }

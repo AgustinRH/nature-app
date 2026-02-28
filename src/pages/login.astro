@@ -25,6 +25,7 @@ if (Astro.request.method === 'POST') {
         roleToSet = "ADMIN";
       }
 
+      Astro.cookies.set('user_id', String(user.id), { path: '/', httpOnly: true });
       Astro.cookies.set('user_name', user.nombre, { path: '/', httpOnly: true });
       Astro.cookies.set('user_role', roleToSet, { path: '/', httpOnly: true });
 

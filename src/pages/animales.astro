@@ -7,17 +7,68 @@ const userRole = Astro.cookies.get('user_role')?.value;
 const userName = Astro.cookies.get('user_name')?.value;
 const isAdmin = userRole === 'ADMIN';
 const isLogged = !!userName;
+let userId = parseInt(Astro.cookies.get('user_id')?.value || '0');
 
-// 2. LÓGICA DE BÚSQUEDA
+if (!userId && userName) {
+  const userByName = await prisma.user.findFirst({ where: { nombre: userName }, select: { id: true } });
+  if (userByName) {
+    userId = userByName.id;
+  }
+}
+
+// 2. LÓGICA DE BÚSQUEDA CON FILTROS
 const search = Astro.url.searchParams.get("search") || "";
+const habitat = Astro.url.searchParams.get("habitat") || "";
+const riesgo = Astro.url.searchParams.get("riesgo") || "";
+
+const where: any = {};
+
+// Búsqueda por nombre o especie
+if (search) {
+  where.OR = [
+    { nombre: { contains: search } },
+    { especie: { contains: search } },
+  ];
+}
+
+// Filtro por hábitat
+if (habitat) {
+  where.habitat = habitat;
+}
+
+// Filtro por riesgo
+if (riesgo) {
+  where.riesgo = riesgo;
+}
+
 const animales = await prisma.animal.findMany({
-  where: {
-    OR: [
-      { nombre: { contains: search } },
-      { especie: { contains: search } },
-    ]
-  },
+  where,
   orderBy: { createdAt: 'desc' }
+});
+
+const favoritosAnimalesIds = new Set<number>();
+if (userId) {
+  const favoritos = await prisma.favorito.findMany({
+    where: {
+      usuarioId: userId,
+      animalId: { not: null }
+    },
+    select: { animalId: true }
+  });
+  favoritos.forEach((favorito) => {
+    if (favorito.animalId) favoritosAnimalesIds.add(favorito.animalId);
+  });
+}
+
+// Obtener valores únicos para los filtros
+const habitats = await prisma.animal.findMany({
+  select: { habitat: true },
+  distinct: ['habitat']
+});
+
+const riesgos = await prisma.animal.findMany({
+  select: { riesgo: true },
+  distinct: ['riesgo']
 });
 
 // 3. USO DE .REDUCE (Para el resumen de especies)
@@ -50,22 +101,46 @@ const especiesUnicas = Object.keys(conteoEspecies).length;
       </a>
     )}
     
-    {/* Buscador */}
-    <form action="/animales" method="GET" style="max-width: 500px; margin: 1.5rem auto; display: flex; gap: 10px;">
-      <input 
-        type="text" 
-        name="search" 
-        placeholder="Buscar animal o especie..." 
-        value={search} 
-        style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #ddd; outline: none;" 
-      />
-      <button type="submit" style="background: var(--primary); color: white; padding: 10px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
-        Buscar
-      </button>
-    </form>
+    {/* Filtros Avanzados */}
+    <div class="filters-section">
+      <form action="/animales" method="GET" class="filters-form">
+        <div class="filter-row">
+          <input 
+            type="text" 
+            name="search" 
+            placeholder="Buscar animal o especie..." 
+            value={search} 
+            class="search-input"
+          />
+          
+          <select name="habitat" class="filter-select">
+            <option value="">Todos los hábitats</option>
+            {habitats.map(h => (
+              <option value={h.habitat} selected={habitat === h.habitat}>
+                {h.habitat}
+              </option>
+            ))}
+          </select>
+
+          <select name="riesgo" class="filter-select">
+            <option value="">Todos los riesgos</option>
+            {riesgos.map(r => (
+              <option value={r.riesgo} selected={riesgo === r.riesgo}>
+                {r.riesgo}
+              </option>
+            ))}
+          </select>
+
+          <button type="submit" class="btn-filter">🔍 Filtrar</button>
+          {(search || habitat || riesgo) && (
+            <a href="/animales" class="btn-reset">✕ Limpiar</a>
+          )}
+        </div>
+      </form>
+    </div>
 
     {/* Resumen dinámico con .reduce */}
-    <div style="font-size: 0.9rem; color: #666; background: #fff; display: inline-block; padding: 0.5rem 1.5rem; border-radius: 20px; border: 1px solid #eee;">
+    <div style="font-size: 0.9rem; color: #666; background: #fff; display: inline-block; padding: 0.5rem 1.5rem; border-radius: 20px; border: 1px solid #eee; margin-top: 1rem;">
       📊 <strong>{animales.length}</strong> animales registrados en <strong>{especiesUnicas}</strong> categorías de especies.
     </div>
   </section>
@@ -89,22 +164,37 @@ const especiesUnicas = Object.keys(conteoEspecies).length;
             </div>
           </a>
 
-          {/* LÓGICA DE BOTONES: Solo se muestran si es ADMIN */}
-          {isAdmin && (
+          {/* LÓGICA DE BOTONES: favoritos para usuarios logueados, editar/borrar para ADMIN */}
+          {(isLogged || isAdmin) && (
             <div class="card-actions">
-              <a href={`/editar/${animal.id}`} class="btn-action btn-edit">
-                <span>✏️</span> Editar
-              </a>
-              <form 
-                action={`/api/delete/${animal.id}`} 
-                method="POST" 
-                style="margin: 0;"
-                onsubmit="return confirm('¿Estás seguro de que quieres eliminar este registro?')"
-              >
-                <button type="submit" class="btn-action btn-delete">
-                  <span>🗑️</span> Borrar
+              {isLogged && (
+                <button
+                  type="button"
+                  onclick="toggleFavoritoAnimal(this)"
+                  data-animal-id={animal.id}
+                  class={`btn-action btn-fav ${favoritosAnimalesIds.has(animal.id) ? 'is-fav' : ''}`}
+                >
+                  {favoritosAnimalesIds.has(animal.id) ? '💔 Quitar Fav' : '❤️ Favorito'}
                 </button>
-              </form>
+              )}
+
+              {isAdmin && (
+                <>
+                  <a href={`/editar/${animal.id}`} class="btn-action btn-edit">
+                    <span>✏️</span> Editar
+                  </a>
+                  <form 
+                    action={`/api/delete/${animal.id}`} 
+                    method="POST" 
+                    style="margin: 0;"
+                    onsubmit="return confirm('¿Estás seguro de que quieres eliminar este registro?')"
+                  >
+                    <button type="submit" class="btn-action btn-delete">
+                      <span>🗑️</span> Borrar
+                    </button>
+                  </form>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -180,6 +270,76 @@ const especiesUnicas = Object.keys(conteoEspecies).length;
     }
   }
 
+  .filters-section {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin: 1.5rem auto;
+    max-width: 900px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+
+  .filters-form {
+    display: flex;
+  }
+
+  .filter-row {
+    display: flex;
+    gap: 0.8rem;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .search-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.95rem;
+  }
+
+  .filter-select {
+    min-width: 150px;
+    padding: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+  }
+
+  .btn-filter {
+    background: var(--primary);
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+
+  .btn-filter:hover {
+    opacity: 0.9;
+  }
+
+  .btn-reset {
+    background: #999;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 8px;
+    text-decoration: none;
+    cursor: pointer;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  .btn-reset:hover {
+    background: #777;
+  }
+
   .btn-add-header {
     display: inline-block;
     background: var(--primary);
@@ -223,11 +383,15 @@ const especiesUnicas = Object.keys(conteoEspecies).length;
   .info-box p { margin: 5px 0 0; color: #666; }
   
   .card-actions { 
-    display: grid; 
-    grid-template-columns: 1fr 1fr; 
+    display: flex;
     border-top: 1px solid #eee; 
     background: #fdfdfd; 
-    gap: 1px; 
+  }
+  .card-actions > * {
+    flex: 1;
+  }
+  .card-actions > *:not(:last-child) {
+    border-right: 1px solid #eee;
   }
   .btn-action { 
     background: transparent; 
@@ -242,7 +406,48 @@ const especiesUnicas = Object.keys(conteoEspecies).length;
     text-decoration: none; 
     font-size: 0.85rem; 
   }
-  .btn-edit { color: #4361ee; border-right: 1px solid #eee; }
+  .btn-fav { color: #c1121f; }
+  .btn-fav.is-fav { color: #9b2226; }
+  .btn-edit { color: #4361ee; }
   .btn-delete { color: #e63946; width: 100%; }
   .btn-action:hover { background: #f0f0f0; }
 </style>
+
+<script is:inline>
+  async function toggleFavoritoAnimal(button) {
+    if (!(button instanceof HTMLButtonElement)) return;
+    const animalId = Number(button.dataset.animalId);
+    if (!animalId) return;
+
+    const oldText = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Guardando...';
+
+    try {
+      const response = await fetch(`/api/favorites/toggle-animal/${animalId}`, {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        throw new Error('No se pudo actualizar favoritos');
+      }
+
+      const isFav = button.classList.contains('is-fav');
+      if (isFav) {
+        button.classList.remove('is-fav');
+        button.textContent = '❤️ Favorito';
+        window.dispatchEvent(new CustomEvent('favorites:delta', { detail: { delta: -1 } }));
+      } else {
+        button.classList.add('is-fav');
+        button.textContent = '💔 Quitar Fav';
+        window.dispatchEvent(new CustomEvent('favorites:delta', { detail: { delta: 1 } }));
+      }
+      button.disabled = false;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      alert('❌ ' + errorMessage);
+      button.disabled = false;
+      button.textContent = oldText;
+    }
+  }
+</script>

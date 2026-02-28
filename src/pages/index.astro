@@ -95,7 +95,67 @@ const plantas = await prisma.planta.findMany({
       )}
     </div>
   </section>
+
+  {/* Newsletter Section */}
+  <section class="newsletter-section">
+    <div class="newsletter-content">
+      <h2>📬 Suscríbete a Nuestro Newsletter</h2>
+      <p>Recibe actualizaciones sobre nuevas especies y noticias de conservación</p>
+      <form id="newsletterForm" class="newsletter-form">
+        <input 
+          type="email" 
+          placeholder="Tu correo electrónico" 
+          required
+          class="newsletter-input"
+        />
+        <button type="submit" class="newsletter-btn">Suscribirse</button>
+      </form>
+      <div id="newsletterMessage" class="newsletter-message" style="display: none;"></div>
+    </div>
+  </section>
 </MainLayout>
+
+<script>
+  const form = document.getElementById('newsletterForm');
+  const messageDiv = document.getElementById('newsletterMessage');
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = (form.querySelector('input[type="email"]') as HTMLInputElement).value;
+
+    try {
+      const response = await fetch('/api/newsletter/suscribir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        if (messageDiv) {
+          messageDiv.textContent = data.message;
+          messageDiv.className = 'newsletter-message success';
+          messageDiv.style.display = 'block';
+        }
+        (form as HTMLFormElement).reset();
+        setTimeout(() => {
+          if (messageDiv) {
+            messageDiv.style.display = 'none';
+          }
+        }, 4000);
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (error) {
+      if (messageDiv) {
+        messageDiv.textContent = error instanceof Error ? error.message : 'Error al suscribirse';
+        messageDiv.className = 'newsletter-message error';
+        messageDiv.style.display = 'block';
+      }
+    }
+  });
+</script>
 
 <style>
   {/* Decoraciones flotantes de naturaleza */}
@@ -338,6 +398,75 @@ const plantas = await prisma.planta.findMany({
     padding: 2rem;
   }
 
+  .newsletter-section {
+    background: linear-gradient(135deg, var(--primary), #1a9c5e);
+    color: white;
+    padding: 4rem 2rem;
+    border-radius: 20px;
+    margin: 4rem auto;
+    max-width: 700px;
+  }
+
+  .newsletter-content {
+    text-align: center;
+  }
+
+  .newsletter-content h2 {
+    margin: 0 0 1rem 0;
+    font-size: 2rem;
+  }
+
+  .newsletter-content p {
+    margin: 0 0 2rem 0;
+    opacity: 0.9;
+    font-size: 1.05rem;
+  }
+
+  .newsletter-form {
+    display: flex;
+    gap: 0.8rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .newsletter-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    outline: none;
+  }
+
+  .newsletter-btn {
+    background: white;
+    color: var(--primary);
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s;
+    white-space: nowrap;
+  }
+
+  .newsletter-btn:hover {
+    transform: scale(1.05);
+  }
+
+  .newsletter-message {
+    padding: 1rem;
+    border-radius: 8px;
+    font-weight: bold;
+  }
+
+  .newsletter-message.success {
+    background: #28a745;
+  }
+
+  .newsletter-message.error {
+    background: #dc3545;
+  }
+
   @media (max-width: 768px) {
     .hero-section h1 {
       font-size: 2rem;
@@ -345,6 +474,14 @@ const plantas = await prisma.planta.findMany({
     
     .carousel {
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+
+    .newsletter-form {
+      flex-direction: column;
+    }
+
+    .newsletter-content h2 {
+      font-size: 1.5rem;
     }
   }
 </style>
