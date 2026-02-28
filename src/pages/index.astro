@@ -2,155 +2,349 @@
 import MainLayout from "../layouts/MainLayout.astro";
 import { prisma } from "../lib/db";
 
-// 1. GESTIÓN DE SESIÓN
-const userRole = Astro.cookies.get('user_role')?.value;
-const userName = Astro.cookies.get('user_name')?.value;
-const isAdmin = userRole === 'ADMIN';
-const isLogged = !!userName; // True si hay un nombre de usuario en las cookies
-
-// 2. LÓGICA DE BÚSQUEDA
-const search = Astro.url.searchParams.get("search") || "";
+// Obtener animales y plantas para los carruseles
 const animales = await prisma.animal.findMany({
-  where: {
-    OR: [
-      { nombre: { contains: search } },
-      { especie: { contains: search } },
-    ]
-  },
-  orderBy: { createdAt: 'desc' }
+  orderBy: { createdAt: 'desc' },
+  take: 6
 });
 
-// 3. USO DE .REDUCE (Para el resumen de especies)
-const conteoEspecies = animales.reduce((acc, animal) => {
-  if (animal.especie) {
-    acc[animal.especie] = (acc[animal.especie] || 0) + 1;
-  }
-  return acc;
-}, {} as Record<string, number>);
-
-const especiesUnicas = Object.keys(conteoEspecies).length;
+const plantas = await prisma.planta.findMany({
+  orderBy: { createdAt: 'desc' },
+  take: 6
+});
 ---
 
-<MainLayout title="Catálogo de Fauna">
-  <section style="margin-bottom: 2rem; text-align: center;">
-    <h1>Explora nuestra Fauna</h1>
-    
-    {/* Buscador */}
-    <form action="/" method="GET" style="max-width: 500px; margin: 0 auto 1.5rem; display: flex; gap: 10px;">
-      <input 
-        type="text" 
-        name="search" 
-        placeholder="Buscar animal o especie..." 
-        value={search} 
-        style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #ddd; outline: none;" 
-      />
-      <button type="submit" style="background: var(--primary); color: white; padding: 10px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
-        Buscar
-      </button>
-    </form>
+<MainLayout title="Inicio">
+  {/* Elementos flotantes decorativos */}
+  <div class="nature-decorations">
+    <div class="deco deco-1">🦋</div>
+    <div class="deco deco-2">🌺</div>
+    <div class="deco deco-3">🐝</div>
+    <div class="deco deco-4">🌻</div>
+    <div class="deco deco-5">🦗</div>
+  </div>
 
-    {/* Resumen dinámico con .reduce */}
-    <div style="font-size: 0.9rem; color: #666; background: #fff; display: inline-block; padding: 0.5rem 1.5rem; border-radius: 20px; border: 1px solid #eee;">
-      📊 <strong>{animales.length}</strong> animales registrados en <strong>{especiesUnicas}</strong> categorías de especies.
+  <div class="hero-section">
+    <h1>🌿 Bienvenido a NatureApp</h1>
+    <p class="hero-description">
+      Explora y documenta la biodiversidad de nuestro planeta. NatureApp es una plataforma dedicada 
+      a catalogar especies animales y vegetales, promoviendo la conservación y el conocimiento 
+      de la naturaleza que nos rodea.
+    </p>
+    <div class="hero-image-container">
+      <img 
+        src="https://picsum.photos/800/400?random=100" 
+        alt="Naturaleza biodiversa" 
+        class="hero-image"
+      />
+    </div>
+  </div>
+
+  <section class="carousel-section">
+    <div class="section-header">
+      <h2>🦁 Animales Recientes</h2>
+      <a href="/animales" class="view-all">Ver todos →</a>
+    </div>
+    <div class="carousel">
+      {animales.length > 0 ? (
+        animales.map((animal) => (
+          <a href={`/animal/${animal.id}`} class="carousel-card">
+            <div class="carousel-image">
+              {animal.imagenUrl ? (
+                <img src={animal.imagenUrl} alt={animal.nombre} />
+              ) : (
+                <div class="no-img">🦁</div>
+              )}
+            </div>
+            <div class="carousel-info">
+              <h3>{animal.nombre}</h3>
+              <p>{animal.especie || 'Sin especie'}</p>
+            </div>
+          </a>
+        ))
+      ) : (
+        <p class="empty-message">No hay animales registrados aún</p>
+      )}
     </div>
   </section>
 
-  {/* Grid de Animales */}
-  <div class="animal-grid">
-    {animales.length > 0 ? (
-      animales.map((animal) => (
-        <div class="animal-card">
-          <a href={`/animal/${animal.id}`} class="card-body">
-            <div class="image-box">
-               {animal.imagenUrl ? (
-                 <img src={animal.imagenUrl} alt={animal.nombre} loading="lazy" />
-               ) : (
-                 <div class="no-img">🌿</div>
-               )}
+  <section class="carousel-section">
+    <div class="section-header">
+      <h2>🌸 Plantas Recientes</h2>
+      <a href="/plantas" class="view-all">Ver todas →</a>
+    </div>
+    <div class="carousel">
+      {plantas.length > 0 ? (
+        plantas.map((planta) => (
+          <a href={`/planta/${planta.id}`} class="carousel-card">
+            <div class="carousel-image">
+              {planta.imagenUrl ? (
+                <img src={planta.imagenUrl} alt={planta.nombre} />
+              ) : (
+                <div class="no-img">🌸</div>
+              )}
             </div>
-            <div class="info-box">
-              <h3>{animal.nombre}</h3>
-              <p><i>{animal.especie}</i></p>
+            <div class="carousel-info">
+              <h3>{planta.nombre}</h3>
+              <p>{planta.especie || 'Sin especie'}</p>
             </div>
           </a>
-
-          {/* LÓGICA DE BOTONES: Solo se muestran si es ADMIN */}
-          {isAdmin && (
-            <div class="card-actions">
-              <a href={`/editar/${animal.id}`} class="btn-action btn-edit">
-                <span>✏️</span> Editar
-              </a>
-              <form 
-                action={`/api/delete/${animal.id}`} 
-                method="POST" 
-                style="margin: 0;"
-                onsubmit="return confirm('¿Estás seguro de que quieres eliminar este registro?')"
-              >
-                <button type="submit" class="btn-action btn-delete">
-                  <span>🗑️</span> Borrar
-                </button>
-              </form>
-            </div>
-          )}
-        </div>
-      ))
-    ) : (
-      <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
-        <p style="font-size: 1.2rem; color: #999;">No se encontraron animales con ese nombre.</p>
-        <a href="/" style="color: var(--primary); text-decoration: underline;">Ver todos</a>
-      </div>
-    )}
-  </div>
+        ))
+      ) : (
+        <p class="empty-message">No hay plantas registradas aún</p>
+      )}
+    </div>
+  </section>
 </MainLayout>
 
 <style>
-  .animal-grid { 
-    display: grid; 
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
-    gap: 2rem; 
+  {/* Decoraciones flotantes de naturaleza */}
+  .nature-decorations {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
   }
-  .animal-card { 
-    background: white; 
-    border-radius: 15px; 
-    overflow: hidden; 
-    border: 1px solid #eee; 
-    display: flex; 
-    flex-direction: column; 
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  .deco {
+    position: absolute;
+    opacity: 0.4;
+    font-size: 2.5rem;
   }
-  .animal-card:hover {
+
+  .deco-1 {
+    top: 10%;
+    left: 10%;
+    animation: float-butterfly 4s ease-in-out infinite;
+  }
+
+  .deco-2 {
+    top: 25%;
+    right: 8%;
+    font-size: 2rem;
+    animation: float 5s ease-in-out infinite;
+  }
+
+  .deco-3 {
+    top: 50%;
+    left: 5%;
+    animation: float-bee 3s ease-in-out infinite;
+  }
+
+  .deco-4 {
+    bottom: 15%;
+    right: 10%;
+    font-size: 2.2rem;
+    animation: float 6s ease-in-out infinite;
+    animation-delay: 1s;
+  }
+
+  .deco-5 {
+    bottom: 30%;
+    left: 8%;
+    animation: float 4.5s ease-in-out infinite;
+    animation-delay: 0.5s;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-30px) rotate(10deg);
+    }
+  }
+
+  @keyframes float-butterfly {
+    0%, 100% {
+      transform: translateY(0px) rotate(0deg);
+    }
+    25% {
+      transform: translateY(-20px) rotate(5deg);
+    }
+    50% {
+      transform: translateY(-40px) rotate(-5deg);
+    }
+    75% {
+      transform: translateY(-20px) rotate(5deg);
+    }
+  }
+
+  @keyframes float-bee {
+    0%, 100% {
+      transform: translateY(0px) translateX(0px);
+    }
+    25% {
+      transform: translateY(-15px) translateX(10px);
+    }
+    50% {
+      transform: translateY(-30px) translateX(-10px);
+    }
+    75% {
+      transform: translateY(-15px) translateX(10px);
+    }
+  }
+
+  .hero-section {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: white;
+    border-radius: 20px;
+    margin-bottom: 3rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+  }
+
+  .hero-section h1 {
+    font-size: 2.5rem;
+    color: var(--primary);
+    margin-bottom: 1rem;
+  }
+
+  .hero-description {
+    font-size: 1.1rem;
+    color: #666;
+    max-width: 700px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  .hero-image-container {
+    margin-top: 2.5rem;
+    display: flex;
+    justify-content: center;
+    animation: slideInUp 0.8s ease-out;
+  }
+
+  .hero-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgba(45, 90, 39, 0.2);
+    max-height: 500px;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+  }
+
+  .hero-image:hover {
+    transform: scale(1.02);
+  }
+
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .carousel-section {
+    margin-bottom: 3rem;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .section-header h2 {
+    font-size: 1.8rem;
+    color: var(--primary);
+    margin: 0;
+  }
+
+  .view-all {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: bold;
+    transition: opacity 0.2s;
+  }
+
+  .view-all:hover {
+    opacity: 0.7;
+  }
+
+  .carousel {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.5rem;
+    overflow-x: auto;
+    padding: 0.5rem;
+  }
+
+  .carousel-card {
+    background: white;
+    border-radius: 15px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+  }
+
+  .carousel-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
   }
-  .card-body { text-decoration: none; color: inherit; flex-grow: 1; }
-  .image-box { height: 200px; background: #f0f0f0; overflow: hidden; }
-  .image-box img { width: 100%; height: 100%; object-fit: cover; }
-  .no-img { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem; }
-  .info-box { padding: 1.2rem; }
-  .info-box h3 { margin: 0; color: var(--primary); font-size: 1.4rem; }
-  .info-box p { margin: 5px 0 0; color: #666; }
-  
-  .card-actions { 
-    display: grid; 
-    grid-template-columns: 1fr 1fr; 
-    border-top: 1px solid #eee; 
-    background: #fdfdfd; 
-    gap: 1px; 
+
+  .carousel-image {
+    height: 180px;
+    background: #f0f0f0;
+    overflow: hidden;
   }
-  .btn-action { 
-    background: transparent; 
-    padding: 12px; 
-    border: none; 
-    font-weight: bold; 
-    cursor: pointer; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    gap: 5px;
-    text-decoration: none; 
-    font-size: 0.85rem; 
+
+  .carousel-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
-  .btn-edit { color: #4361ee; border-right: 1px solid #eee; }
-  .btn-delete { color: #e63946; width: 100%; }
-  .btn-action:hover { background: #f0f0f0; }
+
+  .no-img {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+  }
+
+  .carousel-info {
+    padding: 1rem;
+  }
+
+  .carousel-info h3 {
+    margin: 0 0 0.3rem 0;
+    color: var(--primary);
+    font-size: 1.1rem;
+  }
+
+  .carousel-info p {
+    margin: 0;
+    color: #666;
+    font-size: 0.9rem;
+    font-style: italic;
+  }
+
+  .empty-message {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #999;
+    padding: 2rem;
+  }
+
+  @media (max-width: 768px) {
+    .hero-section h1 {
+      font-size: 2rem;
+    }
+    
+    .carousel {
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+  }
 </style>

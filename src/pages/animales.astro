@@ -1,0 +1,248 @@
+---
+import MainLayout from "../layouts/MainLayout.astro";
+import { prisma } from "../lib/db";
+
+// 1. GESTIÓN DE SESIÓN
+const userRole = Astro.cookies.get('user_role')?.value;
+const userName = Astro.cookies.get('user_name')?.value;
+const isAdmin = userRole === 'ADMIN';
+const isLogged = !!userName;
+
+// 2. LÓGICA DE BÚSQUEDA
+const search = Astro.url.searchParams.get("search") || "";
+const animales = await prisma.animal.findMany({
+  where: {
+    OR: [
+      { nombre: { contains: search } },
+      { especie: { contains: search } },
+    ]
+  },
+  orderBy: { createdAt: 'desc' }
+});
+
+// 3. USO DE .REDUCE (Para el resumen de especies)
+const conteoEspecies = animales.reduce((acc, animal) => {
+  if (animal.especie) {
+    acc[animal.especie] = (acc[animal.especie] || 0) + 1;
+  }
+  return acc;
+}, {} as Record<string, number>);
+
+const especiesUnicas = Object.keys(conteoEspecies).length;
+---
+
+<MainLayout title="Catálogo de Fauna">
+  {/* Animales flotantes decorativos en los laterales */}
+  <div class="floating-animals">
+    <div class="animal-deco animal-left-1">🦁</div>
+    <div class="animal-deco animal-right-1">🐘</div>
+    <div class="animal-deco animal-left-2">🦒</div>
+    <div class="animal-deco animal-right-2">🦓</div>
+  </div>
+
+  <section style="margin-bottom: 2rem; text-align: center;">
+    <h1>🦁 Explora nuestra Fauna</h1>
+    
+    {/* Botón de añadir (solo para ADMIN) */}
+    {isAdmin && (
+      <a href="/add-animal" class="btn-add-header">
+        + Añadir Animal
+      </a>
+    )}
+    
+    {/* Buscador */}
+    <form action="/animales" method="GET" style="max-width: 500px; margin: 1.5rem auto; display: flex; gap: 10px;">
+      <input 
+        type="text" 
+        name="search" 
+        placeholder="Buscar animal o especie..." 
+        value={search} 
+        style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #ddd; outline: none;" 
+      />
+      <button type="submit" style="background: var(--primary); color: white; padding: 10px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+        Buscar
+      </button>
+    </form>
+
+    {/* Resumen dinámico con .reduce */}
+    <div style="font-size: 0.9rem; color: #666; background: #fff; display: inline-block; padding: 0.5rem 1.5rem; border-radius: 20px; border: 1px solid #eee;">
+      📊 <strong>{animales.length}</strong> animales registrados en <strong>{especiesUnicas}</strong> categorías de especies.
+    </div>
+  </section>
+
+  {/* Grid de Animales */}
+  <div class="animal-grid">
+    {animales.length > 0 ? (
+      animales.map((animal) => (
+        <div class="animal-card">
+          <a href={`/animal/${animal.id}`} class="card-body">
+            <div class="image-box">
+               {animal.imagenUrl ? (
+                 <img src={animal.imagenUrl} alt={animal.nombre} loading="lazy" />
+               ) : (
+                 <div class="no-img">🦁</div>
+               )}
+            </div>
+            <div class="info-box">
+              <h3>{animal.nombre}</h3>
+              <p><i>{animal.especie}</i></p>
+            </div>
+          </a>
+
+          {/* LÓGICA DE BOTONES: Solo se muestran si es ADMIN */}
+          {isAdmin && (
+            <div class="card-actions">
+              <a href={`/editar/${animal.id}`} class="btn-action btn-edit">
+                <span>✏️</span> Editar
+              </a>
+              <form 
+                action={`/api/delete/${animal.id}`} 
+                method="POST" 
+                style="margin: 0;"
+                onsubmit="return confirm('¿Estás seguro de que quieres eliminar este registro?')"
+              >
+                <button type="submit" class="btn-action btn-delete">
+                  <span>🗑️</span> Borrar
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+      ))
+    ) : (
+      <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+        <p style="font-size: 1.2rem; color: #999;">No se encontraron animales con ese nombre.</p>
+        <a href="/animales" style="color: var(--primary); text-decoration: underline;">Ver todos</a>
+      </div>
+    )}
+  </div>
+</MainLayout>
+
+<style>
+  {/* Animales flotantes decorativos */}
+  .floating-animals {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+    overflow: hidden;
+  }
+
+  .animal-deco {
+    position: absolute;
+    font-size: 3.5rem;
+    opacity: 0.2;
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animal-left-1 {
+    left: 2%;
+    top: 20%;
+    animation-delay: 0s;
+  }
+
+  .animal-right-1 {
+    right: 3%;
+    top: 15%;
+    animation-delay: 1s;
+    font-size: 3rem;
+  }
+
+  .animal-left-2 {
+    left: 5%;
+    top: 60%;
+    animation-delay: 2s;
+    font-size: 3.2rem;
+  }
+
+  .animal-right-2 {
+    right: 4%;
+    bottom: 20%;
+    animation-delay: 1.5s;
+    font-size: 3.5rem;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px) rotate(0deg);
+    }
+    25% {
+      transform: translateY(-20px) rotate(5deg);
+    }
+    50% {
+      transform: translateY(-40px) rotate(0deg);
+    }
+    75% {
+      transform: translateY(-20px) rotate(-5deg);
+    }
+  }
+
+  .btn-add-header {
+    display: inline-block;
+    background: var(--primary);
+    color: white;
+    padding: 0.7rem 1.5rem;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: bold;
+    margin-top: 1rem;
+    transition: transform 0.2s;
+  }
+  
+  .btn-add-header:hover {
+    transform: scale(1.05);
+  }
+
+  .animal-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+    gap: 2rem; 
+  }
+  .animal-card { 
+    background: white; 
+    border-radius: 15px; 
+    overflow: hidden; 
+    border: 1px solid #eee; 
+    display: flex; 
+    flex-direction: column; 
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .animal-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+  }
+  .card-body { text-decoration: none; color: inherit; flex-grow: 1; }
+  .image-box { height: 200px; background: #f0f0f0; overflow: hidden; }
+  .image-box img { width: 100%; height: 100%; object-fit: cover; }
+  .no-img { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem; }
+  .info-box { padding: 1.2rem; }
+  .info-box h3 { margin: 0; color: var(--primary); font-size: 1.4rem; }
+  .info-box p { margin: 5px 0 0; color: #666; }
+  
+  .card-actions { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    border-top: 1px solid #eee; 
+    background: #fdfdfd; 
+    gap: 1px; 
+  }
+  .btn-action { 
+    background: transparent; 
+    padding: 12px; 
+    border: none; 
+    font-weight: bold; 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 5px;
+    text-decoration: none; 
+    font-size: 0.85rem; 
+  }
+  .btn-edit { color: #4361ee; border-right: 1px solid #eee; }
+  .btn-delete { color: #e63946; width: 100%; }
+  .btn-action:hover { background: #f0f0f0; }
+</style>

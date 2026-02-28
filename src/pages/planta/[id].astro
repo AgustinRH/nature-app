@@ -1,0 +1,278 @@
+---
+import MainLayout from '../../layouts/MainLayout.astro';
+import { prisma } from '../../lib/db';
+
+// 1. Obtenemos el ID de la URL
+const { id } = Astro.params;
+
+// 2. Consultamos la base de datos (con manejo de errores)
+let planta;
+try {
+  planta = await prisma.planta.findUnique({
+    where: { id: Number(id) }
+  });
+} catch (e) {
+  console.error("Error al consultar planta:", e);
+}
+
+// 3. Si no existe, redirigimos a 404
+if (!planta) {
+  return Astro.redirect('/404');
+}
+
+// 4. Formateo de fecha para que quede elegante
+const fechaRegistro = new Date(planta.createdAt).toLocaleDateString('es-ES', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric'
+});
+---
+
+<MainLayout title={`${planta.nombre} | Detalles`}>
+  <div class="page-container">
+    
+    <nav class="breadcrumb">
+      <a href="/plantas">← Volver al Catálogo</a>
+    </nav>
+
+    <article class="planta-card-full">
+      
+      <div class="image-wrapper">
+        {planta.imagenUrl ? (
+          <img src={planta.imagenUrl} alt={planta.nombre} class="main-image" />
+        ) : (
+          <div class="no-image">🌸 Sin imagen disponible</div>
+        )}
+        <div class={`status-badge ${planta.riesgo.toLowerCase().replace(/\s+/g, '-')}`}>
+          {planta.riesgo}
+        </div>
+      </div>
+
+      <div class="info-wrapper">
+        <header>
+          <span class="category-tag">Especie Registrada</span>
+          <h1>{planta.nombre}</h1>
+          <p class="habitat-subtitle">🌍 Ubicación: <strong>{planta.habitat}</strong></p>
+        </header>
+
+        <div class="content-body">
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-label">Estado de Riesgo</span>
+              <span class="stat-value">{planta.riesgo}</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Fecha de Registro</span>
+              <span class="stat-value">{fechaRegistro}</span>
+            </div>
+          </div>
+
+          <div class="description-text">
+            <h3>Sobre esta especie</h3>
+            <p>
+              Esta especie de <strong>{planta.nombre}</strong> ha sido documentada como parte de nuestro esfuerzo por catalogar la biodiversidad local. 
+              Actualmente se encuentra en un estado de conservación <strong>{planta.riesgo}</strong> en la zona de {planta.habitat}.
+            </p>
+            {planta.descripcion && (
+              <p>{planta.descripcion}</p>
+            )}
+            <p class="note">
+              * La información mostrada ha sido verificada por la comunidad de NatureApp.
+            </p>
+          </div>
+        </div>
+
+        <footer class="card-footer">
+          <button onclick="window.print()" class="btn-action">Imprimir Ficha</button>
+          <button onclick="alert('Funcionalidad de compartir próximamente')" class="btn-secondary">Compartir</button>
+        </footer>
+      </div>
+
+    </article>
+  </div>
+</MainLayout>
+
+<style>
+  /* Contenedor principal */
+  .page-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1rem;
+  }
+
+  .breadcrumb a {
+    text-decoration: none;
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: opacity 0.2s;
+  }
+  .breadcrumb a:hover { opacity: 0.7; }
+
+  /* La Gran Ficha */
+  .planta-card-full {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    background: white;
+    margin-top: 1.5rem;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    min-height: 600px;
+  }
+
+  @media (max-width: 850px) {
+    .planta-card-full {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Estilos de Imagen */
+  .image-wrapper {
+    position: relative;
+    background: #222;
+  }
+
+  .main-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .no-image {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    background: #f4f4f4;
+  }
+
+  /* Etiquetas de Estado */
+  .status-badge {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    padding: 0.6rem 1.2rem;
+    border-radius: 12px;
+    color: white;
+    font-weight: 800;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    background: #666;
+  }
+
+  .critico { background: #e63946; }
+  .en-peligro { background: #f4a261; }
+  .vulnerable { background: #e9c46a; }
+  .seguro { background: #2a9d8f; }
+
+  /* Estilos de Información */
+  .info-wrapper {
+    padding: 3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .category-tag {
+    color: var(--primary);
+    font-weight: 800;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+
+  h1 {
+    font-size: 3rem;
+    margin: 0.5rem 0;
+    color: #1a1a1a;
+    line-height: 1.1;
+  }
+
+  .habitat-subtitle {
+    font-size: 1.1rem;
+    color: #555;
+  }
+
+  /* Grid de estadísticas */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 2rem 0;
+  }
+
+  .stat-box {
+    background: #f9f9f9;
+    padding: 1rem;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: #888;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+
+  .stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .description-text {
+    line-height: 1.7;
+    color: #444;
+  }
+
+  .description-text h3 {
+    margin-top: 0;
+    color: var(--primary);
+  }
+
+  .note {
+    font-size: 0.85rem;
+    color: #999;
+    margin-top: 1rem;
+  }
+
+  /* Footer */
+  .card-footer {
+    display: flex;
+    gap: 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #eee;
+  }
+
+  .btn-action, .btn-secondary {
+    padding: 0.8rem 1.5rem;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .btn-action {
+    background: var(--primary);
+    color: white;
+  }
+
+  .btn-secondary {
+    background: #f0f0f0;
+    color: #666;
+  }
+
+  .btn-action:hover, .btn-secondary:hover {
+    transform: scale(1.05);
+  }
+</style>

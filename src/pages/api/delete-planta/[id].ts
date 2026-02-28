@@ -15,12 +15,12 @@ export const POST: APIRoute = async ({ params, redirect, cookies }) => {
   }
 
   try {
-    await prisma.animal.delete({
+    await prisma.planta.delete({
       where: { id: Number(id) },
     });
-    // Redirigir a animales tras borrar
-    return redirect('/animales', 303);
+    // Redirigir a plantas tras borrar
+    return redirect('/plantas', 303);
   } catch (error) {
-    return new Response("Error al eliminar el animal", { status: 500 });
+    return new Response("Error al eliminar la planta", { status: 500 });
   }
 };

@@ -13,12 +13,28 @@ model User {
   password String
   nombre   String
   role     String   @default("USER")
+  puntos   Int      @default(0)
+  createdAt DateTime @default(now())
+  
+  favoritos  Favorito[]
+  comentarios Comentario[]
 }
 
 model Animal {
   id          Int      @id @default(autoincrement())
   nombre      String
   especie     String?  // <--- Añade esta línea (el ? significa que es opcional)
+  habitat     String
+  riesgo      String
+  descripcion String?
+  imagenUrl   String?
+  createdAt   DateTime @default(now())
+}
+
+model Planta {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  especie     String?
   habitat     String
   riesgo      String
   descripcion String?
